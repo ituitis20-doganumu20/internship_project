@@ -3,7 +3,7 @@ package com.example.weather;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class WeatherClient {
+public class WeatherClient { //this class is singleton, since the retrofit is private static.
     private static final String BASE_URL = "https://api.openweathermap.org/data/2.5/";
     private static Retrofit retrofit;
 
