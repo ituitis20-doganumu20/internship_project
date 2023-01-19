@@ -18,7 +18,7 @@ import java.util.List;
 import android.location.Geocoder;
 
 
-
+import android.widget.ProgressBar;
 
 import android.location.Location;
 import android.location.LocationManager;
@@ -43,11 +43,15 @@ import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity {
 
+    private TextView progressText;
+    private ProgressBar mProgressBar;
+
     public static final int REQUEST_LOCATION = 1;
     private TextView temperatureTextView;
     private TextView clothingRecommendationTextView;
 
     private TextView CityNameView;
+
 
     private Button button;
     @SuppressLint("MissingInflatedId")
@@ -66,6 +70,10 @@ public class MainActivity extends AppCompatActivity {
         CityNameView = findViewById(R.id.CityNameView);
         temperatureTextView = findViewById(R.id.temperature_text_view);
         clothingRecommendationTextView = findViewById(R.id.clothingRecommendationTextView);
+        mProgressBar = findViewById(R.id.progress_bar);
+        mProgressBar.setVisibility(View.GONE);
+        progressText = findViewById(R.id.progress_text);
+        progressText.setVisibility(View.GONE);
     }
 
     @Override
@@ -82,12 +90,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void getWeatherData() {
 
-
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
 
         } else{
-
+            progressText.setVisibility(View.VISIBLE);
+            mProgressBar.setVisibility(View.VISIBLE);
             //permission granted, proceed with location services
             LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 
@@ -105,7 +113,9 @@ public class MainActivity extends AppCompatActivity {
                         Retrofit retrofit = WeatherClient.getClient();
 
                         WeatherService service = retrofit.create(WeatherService.class);
+
                         //loading dialoge
+
                         Call<WeatherData> call = service.getWeather(city, "89f5066ac34b5258a4aa571d8738f92f");
                         call.enqueue(new Callback<WeatherData>() {// enqueue for async, execute for sync
                             @Override
@@ -120,12 +130,16 @@ public class MainActivity extends AppCompatActivity {
                                     System.out.println("respond is not successful");// handle error
                                 }
                                 //end loading
+                                mProgressBar.setVisibility(View.GONE);
+                                progressText.setVisibility(View.GONE);
                             }
 
                             @Override
                             public void onFailure(Call<WeatherData> call, Throwable t) {
                                 Log.i("TAG", "onFailure: failed");// handle failure
                                 //end loading
+                                mProgressBar.setVisibility(View.GONE);
+                                progressText.setVisibility(View.GONE);
                             }
                         });
                     } catch (IOException e) {
