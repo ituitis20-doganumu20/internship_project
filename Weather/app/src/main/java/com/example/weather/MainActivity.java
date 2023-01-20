@@ -35,6 +35,7 @@ import android.location.Criteria;
 
 import android.widget.Button;
 import android.widget.TextView;
+
 import android.widget.Toast;
 
 
@@ -47,36 +48,24 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+import androidx.viewpager.widget.ViewPager;
 
+
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentPagerAdapter;
+import androidx.viewpager2.adapter.FragmentStateAdapter;
+import androidx.viewpager2.widget.ViewPager2;
 
 
 public class MainActivity extends AppCompatActivity {
 
     private BottomNavigationView bottomnav;
 
+    private ViewPager2 viewPager;
 
     public static final int REQUEST_LOCATION = 1;
 
-
-    private void replaceFragment(Fragment fragment, String tag) {
-        FragmentManager fragmentManager = getSupportFragmentManager();
-        FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
-
-        Fragment existingFragment = fragmentManager.findFragmentByTag(tag);
-        if (existingFragment != null) {
-            fragmentTransaction.show(existingFragment);
-        } else {
-            fragmentTransaction.add(R.id.frame_layout, fragment, tag);
-        }
-
-        List<Fragment> fragments = fragmentManager.getFragments();
-        for (Fragment f : fragments) {
-            if (!f.equals(existingFragment)) {
-                fragmentTransaction.hide(f);
-            }
-        }
-        fragmentTransaction.commit();
-    }
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -85,31 +74,81 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
         bottomnav = findViewById(R.id.bottomNavigationView);
-        bottomnav.setSelectedItemId(R.id.home);
+        //bottomnav.setSelectedItemId(R.id.home);
         //bottomnav.inflateMenu(R.menu.bottomnav_menu);
         //Log.i("TAG", String.valueOf(bottomnav.getMaxItemCount()));// handle failure
-        replaceFragment(new HomeFragment(),"home");
+        //(new HomeFragment(),"home");
+        viewPager = findViewById(R.id.view_pager);
 
-        bottomnav.setOnItemSelectedListener(new NavigationBarView.OnItemSelectedListener() {
+        viewPager.setAdapter(new FragmentStateAdapter(this) {
+            @NonNull
             @Override
-            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-                switch (item.getItemId()) {
-                    case R.id.home:
-                        // Handle home item selected
-                        replaceFragment(new HomeFragment(),"home");
+            public Fragment createFragment(int position) {
+                Fragment fragment = null;
+                switch (position) {
+                    case 1:
+                        fragment = getSupportFragmentManager().findFragmentByTag("home");
+                        if (fragment == null) {
+                            fragment = new HomeFragment();
+                        }
                         break;
-                    case R.id.weather:
-                        // Handle get weather item selected
-                        replaceFragment(new WeatherFragment(), "weather");
+                    case 0:
+                        fragment = getSupportFragmentManager().findFragmentByTag("weather");
+                        if (fragment == null) {
+                            fragment = new WeatherFragment();
+                        }
                         break;
-                    case R.id.clothing:
-                        // Handle get recommendation item selected
-                        replaceFragment(new ClothFragment(),"clothing");
+                    case 2:
+                        fragment = getSupportFragmentManager().findFragmentByTag("clothing");
+                        if (fragment == null) {
+                            fragment = new ClothFragment();
+                        }
                         break;
-
+                }
+                return fragment;
             }
-                return true;
-        }});
+
+
+            @Override
+            public int getItemCount() {
+                return 3;
+            }
+        });
+        viewPager.setCurrentItem(1);
+        bottomnav.setSelectedItemId(R.id.home);
+
+        viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                switch (position) {
+                    case 0:
+                        bottomnav.setSelectedItemId(R.id.weather);
+                        break;
+                    case 1:
+                        bottomnav.setSelectedItemId(R.id.home);
+                        break;
+                    case 2:
+                        bottomnav.setSelectedItemId(R.id.clothing);
+                        break;
+                }
+            }
+        });
+
+        bottomnav.setOnItemSelectedListener( item -> {
+            switch (item.getItemId()) {
+                case R.id.home:
+                    viewPager.setCurrentItem(1);
+                    break;
+                case R.id.weather:
+                    viewPager.setCurrentItem(0);
+                    break;
+                case R.id.clothing:
+                    viewPager.setCurrentItem(2);
+                    break;
+            }
+            return true;
+        });
+
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
     }
