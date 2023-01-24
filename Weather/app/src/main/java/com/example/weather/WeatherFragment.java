@@ -1,6 +1,9 @@
 package com.example.weather;
 
+import static com.example.weather.MainActivity.REQUEST_LOCATION;
+
 import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.Address;
@@ -32,7 +35,7 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
-
+import android.widget.Toast;
 public class WeatherFragment extends Fragment {
 
     private TextView temperatureTextView;
@@ -62,7 +65,7 @@ public class WeatherFragment extends Fragment {
         return view;
     }
 
-    private void getWeatherData() {
+    void getWeatherData() {
 
         if (ActivityCompat.checkSelfPermission(requireActivity(), android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
         {
@@ -97,13 +100,19 @@ public class WeatherFragment extends Fragment {
                                     CityNameView.setText("City Name:" + city);
                                     WeatherData weatherData = response.body();
                                     temperatureTextView.setText("Temperature: " + String.format("%.2f", weatherData.getTemperature()-273) + " C " + weatherData.getWeatherDescription());
-                                    //clothingRecommendationTextView.setText(getClothingRecommendation(weatherData.getTemperature()-273));
+                                    //ClothFragment clothFragment = (ClothFragment) getParentFragmentManager().findFragmentById(R.id.cloth_fragment);
+                                    // Set the temperature data as an argument
+                                    ClothFragment clothFragment = (ClothFragment) MainActivity.mAdapter.fragmentHashMap.get(2);
+                                    Bundle bundle = new Bundle();
+                                    bundle.putDouble("temperature", weatherData.getTemperature());
+                                    clothFragment.setArguments(bundle);
                                 } else {
                                     System.out.println("respond is not successful");// handle error
                                 }
                                 //end loading
                                 mProgressBar.setVisibility(View.GONE);
                                 progressText.setVisibility(View.GONE);
+                                button.setVisibility(View.GONE);
                             }
 
                             @Override
@@ -154,8 +163,28 @@ public class WeatherFragment extends Fragment {
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                getWeatherData();
+                if (ActivityCompat.checkSelfPermission(getContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+                    requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
+                else
+                    getWeatherData();
             }
         });
+
     }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if(requestCode==REQUEST_LOCATION){
+            if(grantResults[0]==PackageManager.PERMISSION_GRANTED){
+                getWeatherData();
+            }else{
+                Toast.makeText(getContext(),"cannot use the app without location permission.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+
+
 }

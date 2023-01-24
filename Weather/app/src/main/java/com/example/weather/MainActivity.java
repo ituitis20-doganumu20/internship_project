@@ -13,6 +13,7 @@ import android.view.View;
 import android.os.Bundle;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Locale;
 import android.location.Address;
 import java.util.List;
@@ -60,17 +61,41 @@ import androidx.viewpager2.widget.ViewPager2;
 
 public class MainActivity extends AppCompatActivity {
 
-    private BottomNavigationView bottomnav;
 
-    private ViewPager2 viewPager;
+    private BottomNavigationView bottomnav;
 
     public static final int REQUEST_LOCATION = 1;
 
+    static MyAdapter mAdapter;
+    ViewPager mPager;
+
+    public static class MyAdapter extends FragmentPagerAdapter  {
+        public MyAdapter(FragmentManager fm) {
+            super(fm, BEHAVIOR_RESUME_ONLY_CURRENT_FRAGMENT);
+        }
+        @Override
+        public int getCount() {
+            return 3;
+        }
+
+        HashMap<Integer, Fragment> fragmentHashMap = new HashMap<>();
+        @Override
+        public Fragment getItem(int position) {
+            if (fragmentHashMap.get(position) != null) {
+                return fragmentHashMap.get(position);
+            }
+            Fragment tabFragment = new Fragment();
+            fragmentHashMap.put(position, tabFragment);
+            return tabFragment;
+        }
+
+    }
 
     @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
 
         setContentView(R.layout.activity_main);
         bottomnav = findViewById(R.id.bottomNavigationView);
@@ -78,46 +103,20 @@ public class MainActivity extends AppCompatActivity {
         //bottomnav.inflateMenu(R.menu.bottomnav_menu);
         //Log.i("TAG", String.valueOf(bottomnav.getMaxItemCount()));// handle failure
         //(new HomeFragment(),"home");
-        viewPager = findViewById(R.id.view_pager);
+        mAdapter = new MyAdapter(getSupportFragmentManager());
+        mPager = findViewById(R.id.view_pager);
+        mPager.setAdapter(mAdapter);
+        mPager.setOffscreenPageLimit(2);
+        mAdapter.fragmentHashMap.put(0, new WeatherFragment());
+        mAdapter.fragmentHashMap.put(1, new HomeFragment());
+        mAdapter.fragmentHashMap.put(2, new ClothFragment());
 
-        viewPager.setAdapter(new FragmentStateAdapter(this) {
-            @NonNull
+        mPager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
             @Override
-            public Fragment createFragment(int position) {
-                Fragment fragment = null;
-                switch (position) {
-                    case 1:
-                        fragment = getSupportFragmentManager().findFragmentByTag("home");
-                        if (fragment == null) {
-                            fragment = new HomeFragment();
-                        }
-                        break;
-                    case 0:
-                        fragment = getSupportFragmentManager().findFragmentByTag("weather");
-                        if (fragment == null) {
-                            fragment = new WeatherFragment();
-                        }
-                        break;
-                    case 2:
-                        fragment = getSupportFragmentManager().findFragmentByTag("clothing");
-                        if (fragment == null) {
-                            fragment = new ClothFragment();
-                        }
-                        break;
-                }
-                return fragment;
+            public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+
             }
 
-
-            @Override
-            public int getItemCount() {
-                return 3;
-            }
-        });
-        viewPager.setCurrentItem(1);
-        bottomnav.setSelectedItemId(R.id.home);
-
-        viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
                 switch (position) {
@@ -132,39 +131,33 @@ public class MainActivity extends AppCompatActivity {
                         break;
                 }
             }
+
+
+            @Override
+            public void onPageScrollStateChanged(int state) {
+
+            }
+            // implementation here
         });
 
         bottomnav.setOnItemSelectedListener( item -> {
             switch (item.getItemId()) {
                 case R.id.home:
-                    viewPager.setCurrentItem(1);
+                    mPager.setCurrentItem(1);
                     break;
                 case R.id.weather:
-                    viewPager.setCurrentItem(0);
+                    mPager.setCurrentItem(0);
                     break;
                 case R.id.clothing:
-                    viewPager.setCurrentItem(2);
+                    mPager.setCurrentItem(2);
+
                     break;
             }
             return true;
         });
+        mPager.setCurrentItem(1);
 
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
     }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        if(requestCode==REQUEST_LOCATION){
-            if(grantResults[0]!=PackageManager.PERMISSION_GRANTED){
-                Toast.makeText(this,"cannot use the app without permission.", Toast.LENGTH_SHORT).show();
-                this.finishAffinity();
-            }
-        }
-    }
-
 
 
 }

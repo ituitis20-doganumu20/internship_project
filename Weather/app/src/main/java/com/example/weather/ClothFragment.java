@@ -1,18 +1,28 @@
 package com.example.weather;
 
+import static com.example.weather.MainActivity.REQUEST_LOCATION;
+
+import android.Manifest;
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ContentValues;
 import android.content.DialogInterface;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 
+import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.ActivityResultRegistry;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 
+import android.os.Environment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -27,50 +37,54 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.Toast;
+
 import androidx.lifecycle.*;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 
 public class ClothFragment extends Fragment {
 
-    class MyLifecycleObserver implements DefaultLifecycleObserver {
-        private final ActivityResultRegistry mRegistry;
-        private ActivityResultLauncher<String> mGetContent;
 
-        MyLifecycleObserver(@NonNull ActivityResultRegistry registry) {
-            mRegistry = registry;
-        }
+    public static final int RESULT_OK = Activity.RESULT_OK;
+    private static final int CAMERA_PERMISSION_REQUEST_CODE = 2;
 
-        public void onCreate(@NonNull LifecycleOwner owner) {
-            // ...
-            String umut="umut";
-            mGetContent = mRegistry.register(umut, owner, new ActivityResultContracts.GetContent(),
-                    new ActivityResultCallback<Uri>() {
-                        @Override
-                        public void onActivityResult(Uri uri) {
-                            // Handle the returned Uri
-                            Log.i("image", "image arrived");
-                            //there will be returned image
+
+    private ActivityResultLauncher<Intent> mTakePicture =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        if (result.getResultCode() == RESULT_OK) {
+                            Uri imageUri = result.getData().getData();
+                            // Do something with the image Uri
                         }
                     });
-        }
 
-        public void selectImage() {
-            // Open the activity to select an image
-            mGetContent.launch("image/*");
-        }
+    private void openCamera() {
+        Intent takePictureIntent = new Intent("android.media.action.IMAGE_CAPTURE");
+        mTakePicture.launch(takePictureIntent);
+
     }
-    private MyLifecycleObserver mObserver;
 
 
+    private ActivityResultLauncher<String> mGetContent;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mObserver = new MyLifecycleObserver(requireActivity().getActivityResultRegistry());
-        getLifecycle().addObserver(mObserver);
+        ActivityResultRegistry registry = requireActivity().getActivityResultRegistry();
+        mGetContent = registry.register("imageSelection", this, new ActivityResultContracts.GetContent(),
+                uri -> {
+                    // Handle the returned Uri
+                    Log.i("image", "image arrived");
+                    //there will be returned image
+                });
     }
-
 
     View view;
     @Override
@@ -79,34 +93,51 @@ public class ClothFragment extends Fragment {
         // Inflate the layout for this fragment
         view = inflater.inflate(R.layout.fragment_cloth, container, false);
         Button button = view.findViewById(R.id.upload_image_button);
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                showImageSelectionDialog();
-            }
-        });
+        button.setOnClickListener(view ->showImageSelectionDialog());
 
         return view;
     }
     private void showImageSelectionDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        builder.setTitle("Select Image");
-        builder.setItems(new CharSequence[]{"From Gallery", "Take Photo"},
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
+        if(getArguments()==null)
+            Toast.makeText(getContext(),"Please get weather information first", Toast.LENGTH_SHORT).show();
+        else{
+            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+            builder.setTitle("Select Image");
+            builder.setItems(new CharSequence[]{"From Gallery", "Take Photo"},
+                    (dialog, which) -> {
                         switch (which) {
                             case 0:
-                                mObserver.selectImage();
+                                mGetContent.launch("image/*");
                                 break;
                             case 1:
-                                //openCamera();
+                                if (ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
+                                    requestPermissions(new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+                                else
+                                    openCamera();
                                 break;
                         }
-                    }
-                });
-        builder.create().show();
+                    });
+            builder.create().show();
+        }
+
     }
 
+    private void aiRecommendation(){
+        double temperature = getArguments().getDouble("temperature")-273;
+        Log.i("temp", "temperature is: "+temperature);
+    }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if(requestCode==CAMERA_PERMISSION_REQUEST_CODE){
+            if(grantResults[0]==PackageManager.PERMISSION_GRANTED){
+                openCamera();
+            }else{
+                Toast.makeText(getContext(),"cannot recommend without camera permission.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
 
 }
