@@ -44,30 +44,40 @@ import androidx.lifecycle.*;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 
 public class ClothFragment extends Fragment {
 
-
+    private boolean genderNotSelected = true;
+    private List<Bitmap> images = new ArrayList<>();
     public static final int RESULT_OK = Activity.RESULT_OK;
+    public static final int RESULT_CANCELED = Activity.RESULT_CANCELED;
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 2;
 
+    private boolean userIsMan=true;
 
-    private ActivityResultLauncher<Intent> mTakePicture =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
-                    result -> {
-                        if (result.getResultCode() == RESULT_OK) {
-                            Uri imageUri = result.getData().getData();
-                            // Do something with the image Uri
-                        }
-                    });
+    private static final int Image_Capture_Code = 1;
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == Image_Capture_Code) {
+            if (resultCode == RESULT_OK) {
+                Bitmap image = (Bitmap) data.getExtras().get("data");
+                images.add(image);
+            } else if (resultCode == RESULT_CANCELED) {
+                Toast.makeText(getActivity(), "Cancelled", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
 
     private void openCamera() {
-        Intent takePictureIntent = new Intent("android.media.action.IMAGE_CAPTURE");
-        mTakePicture.launch(takePictureIntent);
-
+        Intent cInt = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        startActivityForResult(cInt,Image_Capture_Code);
     }
 
 
@@ -83,6 +93,12 @@ public class ClothFragment extends Fragment {
                     // Handle the returned Uri
                     Log.i("image", "image arrived");
                     //there will be returned image
+                    try {
+                        Bitmap image = MediaStore.Images.Media.getBitmap(getContext().getContentResolver(), uri);
+                        images.add(image);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 });
     }
 
@@ -93,14 +109,42 @@ public class ClothFragment extends Fragment {
         // Inflate the layout for this fragment
         view = inflater.inflate(R.layout.fragment_cloth, container, false);
         Button button = view.findViewById(R.id.upload_image_button);
-        button.setOnClickListener(view ->showImageSelectionDialog());
+        button.setOnClickListener(view -> {
+            if(getArguments()==null)
+                Toast.makeText(getContext(),"Please get weather information first", Toast.LENGTH_SHORT).show();
+            else {
+                if (genderNotSelected) {
+                    showGenderSelection();
+                    genderNotSelected = false;
+                } else
+                    showImageSelectionDialog();
+            }
+        });
 
         return view;
     }
+
+    private void showGenderSelection(){
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+            builder.setTitle("Select Gender");
+            builder.setItems(new CharSequence[]{"Man", "Woman"}, (dialog, which) -> {
+                switch (which) {
+                    case 0:
+                        userIsMan = true;
+                        break;
+                    case 1:
+                        userIsMan = false;
+                        break;
+                }
+            });
+            AlertDialog dialog = builder.create();
+            dialog.setOnDismissListener(d -> showImageSelectionDialog());
+            dialog.show();
+
+
+    }
     private void showImageSelectionDialog() {
-        if(getArguments()==null)
-            Toast.makeText(getContext(),"Please get weather information first", Toast.LENGTH_SHORT).show();
-        else{
             AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
             builder.setTitle("Select Image");
             builder.setItems(new CharSequence[]{"From Gallery", "Take Photo"},
@@ -118,13 +162,31 @@ public class ClothFragment extends Fragment {
                         }
                     });
             builder.create().show();
-        }
+
 
     }
 
-    private void aiRecommendation(){
+    private void aiRecommendation(List<Bitmap> images){
         double temperature = getArguments().getDouble("temperature")-273;
         Log.i("temp", "temperature is: "+temperature);
+        if(images.isEmpty()){
+            //handle empty list
+            Toast.makeText(getContext(),"Please upload some images first", Toast.LENGTH_SHORT).show();
+        }else{
+            for(int i=0;i<images.size();i++){
+                Bitmap bitmap = images.get(i);
+                ByteBuffer byteBuffer = ByteBuffer.allocate(bitmap.getByteCount());
+                bitmap.copyPixelsToBuffer(byteBuffer);
+                byteBuffer.rewind();
+                if(userIsMan) {
+                    //create man-ai
+                }
+                else{
+                    //create woman-ai
+                }
+            }
+        }
+
     }
 
     @Override

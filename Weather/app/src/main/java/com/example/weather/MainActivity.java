@@ -13,6 +13,7 @@ import android.view.View;
 import android.os.Bundle;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
 import android.location.Address;
@@ -70,23 +71,21 @@ public class MainActivity extends AppCompatActivity {
     ViewPager mPager;
 
     public static class MyAdapter extends FragmentPagerAdapter  {
-        public MyAdapter(FragmentManager fm) {
-            super(fm, BEHAVIOR_RESUME_ONLY_CURRENT_FRAGMENT);
+        private List<Fragment> fragments;
+        public MyAdapter(FragmentManager fm,List<Fragment> fragments) {
+            super(fm);
+            this.fragments = fragments;
+
         }
         @Override
         public int getCount() {
             return 3;
         }
 
-        HashMap<Integer, Fragment> fragmentHashMap = new HashMap<>();
+
         @Override
         public Fragment getItem(int position) {
-            if (fragmentHashMap.get(position) != null) {
-                return fragmentHashMap.get(position);
-            }
-            Fragment tabFragment = new Fragment();
-            fragmentHashMap.put(position, tabFragment);
-            return tabFragment;
+            return fragments.get(position);
         }
 
     }
@@ -103,13 +102,15 @@ public class MainActivity extends AppCompatActivity {
         //bottomnav.inflateMenu(R.menu.bottomnav_menu);
         //Log.i("TAG", String.valueOf(bottomnav.getMaxItemCount()));// handle failure
         //(new HomeFragment(),"home");
-        mAdapter = new MyAdapter(getSupportFragmentManager());
+        List<Fragment> fragments = new ArrayList<>();
         mPager = findViewById(R.id.view_pager);
+        fragments.add(new WeatherFragment());
+        fragments.add(new HomeFragment());
+        fragments.add(new ClothFragment());
+        mAdapter = new MyAdapter(getSupportFragmentManager(),fragments);
+        mPager.setOffscreenPageLimit(3);
         mPager.setAdapter(mAdapter);
-        mPager.setOffscreenPageLimit(2);
-        mAdapter.fragmentHashMap.put(0, new WeatherFragment());
-        mAdapter.fragmentHashMap.put(1, new HomeFragment());
-        mAdapter.fragmentHashMap.put(2, new ClothFragment());
+
 
         mPager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
             @Override

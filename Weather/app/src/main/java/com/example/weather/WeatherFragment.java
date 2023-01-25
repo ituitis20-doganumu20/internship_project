@@ -102,7 +102,7 @@ public class WeatherFragment extends Fragment {
                                     temperatureTextView.setText("Temperature: " + String.format("%.2f", weatherData.getTemperature()-273) + " C " + weatherData.getWeatherDescription());
                                     //ClothFragment clothFragment = (ClothFragment) getParentFragmentManager().findFragmentById(R.id.cloth_fragment);
                                     // Set the temperature data as an argument
-                                    ClothFragment clothFragment = (ClothFragment) MainActivity.mAdapter.fragmentHashMap.get(2);
+                                    ClothFragment clothFragment = (ClothFragment) MainActivity.mAdapter.getItem(2);
                                     Bundle bundle = new Bundle();
                                     bundle.putDouble("temperature", weatherData.getTemperature());
                                     clothFragment.setArguments(bundle);
