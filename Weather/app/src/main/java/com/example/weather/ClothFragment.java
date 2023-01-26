@@ -1,13 +1,16 @@
 package com.example.weather;
 
+import static android.content.Context.LAYOUT_INFLATER_SERVICE;
 import static com.example.weather.MainActivity.REQUEST_LOCATION;
 
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Bundle;
 
 import androidx.activity.result.ActivityResult;
@@ -24,7 +27,9 @@ import androidx.fragment.app.Fragment;
 
 import android.os.Environment;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.content.Intent;
@@ -37,9 +42,14 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.PopupWindow;
 import android.widget.Toast;
 
 import androidx.lifecycle.*;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -49,12 +59,17 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import android.view.LayoutInflater;
+import android.view.View;
+
 
 
 public class ClothFragment extends Fragment {
-
+    private View popupView;
     private boolean genderNotSelected = true;
-    private List<Bitmap> images = new ArrayList<>();
+    private List<Bitmap> images;
+    private PhotoAdapter adapter;
+
     public static final int RESULT_OK = Activity.RESULT_OK;
     public static final int RESULT_CANCELED = Activity.RESULT_CANCELED;
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 2;
@@ -63,12 +78,79 @@ public class ClothFragment extends Fragment {
 
     private static final int Image_Capture_Code = 1;
 
+    public class PhotoAdapter extends RecyclerView.Adapter<PhotoAdapter.ViewHolder> {
+        public class ViewHolder extends RecyclerView.ViewHolder {
+            ImageView imageView;
+
+            public ViewHolder(View itemView) {
+                super(itemView);
+                imageView = itemView.findViewById(R.id.image_view);
+            }
+        }
+
+        public PhotoAdapter() {
+
+        }
+
+        @NonNull
+        @Override
+        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.image_item, parent, false);
+            return new ViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(ViewHolder holder, int position) {
+            holder.imageView.setImageBitmap(images.get(position));
+        }
+
+        @Override
+        public int getItemCount() {
+            return images.size();
+        }
+
+        public void addImage(Bitmap bitmap) {
+            images.add(bitmap);
+            showPopup();
+            notifyDataSetChanged();
+        }
+        public void showPopup() {
+
+            // inflate the layout of the popup window
+            LayoutInflater inflater = (LayoutInflater) getContext().getSystemService(LAYOUT_INFLATER_SERVICE);
+            popupView = inflater.inflate(R.layout.popup_window, null);
+
+
+            // create the popup window
+            int width = LinearLayout.LayoutParams.MATCH_PARENT;
+            int height = LinearLayout.LayoutParams.MATCH_PARENT;
+            boolean focusable = true; // lets taps outside the popup also dismiss it
+            final PopupWindow popupWindow = new PopupWindow(popupView, width, height, focusable);
+
+            // show the popup window
+            popupWindow.showAtLocation(view, Gravity.CENTER, 0, 0);
+
+
+            Button closeButton = popupView.findViewById(R.id.close_button);
+            //closeButton.setBackgroundResource(R.drawable.baseline_cancel_24);
+            //closeButton.setBackgroundColor(Color.TRANSPARENT);
+            popupView.setBackgroundColor(Color.argb(150, 0, 0, 0));
+            closeButton.setOnClickListener(v -> popupWindow.dismiss());
+
+            RecyclerView recyclerView = popupView.findViewById(R.id.recycler_view);
+            recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+            recyclerView.setAdapter(new PhotoAdapter());
+        }
+    }
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == Image_Capture_Code) {
             if (resultCode == RESULT_OK) {
                 Bitmap image = (Bitmap) data.getExtras().get("data");
-                images.add(image);
+                //images.add(image);
+                adapter.addImage(image);
+
             } else if (resultCode == RESULT_CANCELED) {
                 Toast.makeText(getActivity(), "Cancelled", Toast.LENGTH_SHORT).show();
             }
@@ -95,7 +177,9 @@ public class ClothFragment extends Fragment {
                     //there will be returned image
                     try {
                         Bitmap image = MediaStore.Images.Media.getBitmap(getContext().getContentResolver(), uri);
-                        images.add(image);
+                        //images.add(image);
+                        adapter.addImage(image);
+                        //adapter.showPopup();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -108,6 +192,12 @@ public class ClothFragment extends Fragment {
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         view = inflater.inflate(R.layout.fragment_cloth, container, false);
+
+
+        images = new ArrayList<>();
+        adapter = new PhotoAdapter();
+
+        
         Button button = view.findViewById(R.id.upload_image_button);
         button.setOnClickListener(view -> {
             if(getArguments()==null)
@@ -120,6 +210,7 @@ public class ClothFragment extends Fragment {
                     showImageSelectionDialog();
             }
         });
+
 
         return view;
     }
