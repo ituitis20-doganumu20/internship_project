@@ -61,10 +61,14 @@ import java.util.Date;
 import java.util.List;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.graphics.Bitmap;
+import android.provider.MediaStore;
+
 
 
 
 public class ClothFragment extends Fragment {
+    private static final int GALLERY_REQUEST_CODE = 5;
     private View popupView;
     private boolean genderNotSelected = true;
     private List<Bitmap> images;
@@ -111,7 +115,6 @@ public class ClothFragment extends Fragment {
 
         public void addImage(Bitmap bitmap) {
             images.add(bitmap);
-            showPopup();
             notifyDataSetChanged();
         }
         public void showPopup() {
@@ -143,7 +146,7 @@ public class ClothFragment extends Fragment {
         }
     }
 
-    @Override
+    /*@Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == Image_Capture_Code) {
             if (resultCode == RESULT_OK) {
@@ -155,7 +158,7 @@ public class ClothFragment extends Fragment {
                 Toast.makeText(getActivity(), "Cancelled", Toast.LENGTH_SHORT).show();
             }
         }
-    }
+    }*/
 
     private void openCamera() {
         Intent cInt = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -179,7 +182,7 @@ public class ClothFragment extends Fragment {
                         Bitmap image = MediaStore.Images.Media.getBitmap(getContext().getContentResolver(), uri);
                         //images.add(image);
                         adapter.addImage(image);
-                        //adapter.showPopup();
+                        adapter.showPopup();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -197,7 +200,7 @@ public class ClothFragment extends Fragment {
         images = new ArrayList<>();
         adapter = new PhotoAdapter();
 
-        
+
         Button button = view.findViewById(R.id.upload_image_button);
         button.setOnClickListener(view -> {
             if(getArguments()==null)
@@ -235,6 +238,38 @@ public class ClothFragment extends Fragment {
 
 
     }
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode == RESULT_OK && requestCode == GALLERY_REQUEST_CODE) {
+            if(data.getClipData() != null) {
+                int count = data.getClipData().getItemCount();
+                for(int i = 0; i < count; i++) {
+                    Uri imageUri = data.getClipData().getItemAt(i).getUri();
+                    Bitmap bitmap = null;
+                    try {
+                        bitmap = MediaStore.Images.Media.getBitmap(getContext().getContentResolver(), imageUri);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    adapter.addImage(bitmap);
+                    //process the selected image and add it to the images list
+                }
+            } else if(data.getData() != null) {
+                Uri imageUri = data.getData();
+                Bitmap bitmap = null;
+                try {
+                    bitmap = MediaStore.Images.Media.getBitmap(getContext().getContentResolver(), imageUri);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                adapter.addImage(bitmap);
+                //process the selected image and add it to the images list
+            }
+            adapter.showPopup();
+        }
+    }
+
     private void showImageSelectionDialog() {
             AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
             builder.setTitle("Select Image");
@@ -242,7 +277,11 @@ public class ClothFragment extends Fragment {
                     (dialog, which) -> {
                         switch (which) {
                             case 0:
-                                mGetContent.launch("image/*");
+                                Intent intent = new Intent();
+                                intent.setType("image/*");
+                                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                                intent.setAction(Intent.ACTION_GET_CONTENT);
+                                startActivityForResult(Intent.createChooser(intent, "Select Picture"), GALLERY_REQUEST_CODE);
                                 break;
                             case 1:
                                 if (ActivityCompat.checkSelfPermission(getContext(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
