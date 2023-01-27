@@ -1,0 +1,14 @@
+0 tshirt
+1 sweater
+2 jacket
+3 coat
+4 jeans
+5 shorts
+6 shoes
+7 boots
+8 tanktop
+9 cap
+10 gloves
+11 scarf
+12 beanie
+13 skirt

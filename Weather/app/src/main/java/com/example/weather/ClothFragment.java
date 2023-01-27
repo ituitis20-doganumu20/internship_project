@@ -11,6 +11,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.media.ThumbnailUtils;
 import android.os.Bundle;
 
 import androidx.activity.result.ActivityResult;
@@ -26,6 +27,7 @@ import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 
 import android.os.Environment;
+import android.service.controls.templates.ThumbnailTemplate;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -44,6 +46,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.lifecycle.*;
@@ -55,6 +58,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -63,11 +67,16 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.graphics.Bitmap;
 import android.provider.MediaStore;
+import android.graphics.Bitmap;
 
+import com.example.weather.ml.Model;
 
+import org.tensorflow.lite.DataType;
+import org.tensorflow.lite.support.tensorbuffer.TensorBuffer;
 
 
 public class ClothFragment extends Fragment {
+    int imageSize = 224;
     private static final int GALLERY_REQUEST_CODE = 5;
     private View popupView;
     private boolean genderNotSelected = true;
@@ -75,7 +84,7 @@ public class ClothFragment extends Fragment {
     private PhotoAdapter adapter;
 
     public static final int RESULT_OK = Activity.RESULT_OK;
-    public static final int RESULT_CANCELED = Activity.RESULT_CANCELED;
+
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 2;
 
     private boolean userIsMan=true;
@@ -115,6 +124,7 @@ public class ClothFragment extends Fragment {
 
         public void addImage(Bitmap bitmap) {
             images.add(bitmap);
+            classifyImage(bitmap);
             notifyDataSetChanged();
         }
         public void showPopup() {
@@ -138,7 +148,12 @@ public class ClothFragment extends Fragment {
             //closeButton.setBackgroundResource(R.drawable.baseline_cancel_24);
             //closeButton.setBackgroundColor(Color.TRANSPARENT);
             popupView.setBackgroundColor(Color.argb(150, 0, 0, 0));
-            closeButton.setOnClickListener(v -> popupWindow.dismiss());
+            closeButton.setOnClickListener(view -> {
+                popupWindow.dismiss();
+
+            }
+
+            );
 
             RecyclerView recyclerView = popupView.findViewById(R.id.recycler_view);
             recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -146,19 +161,7 @@ public class ClothFragment extends Fragment {
         }
     }
 
-    /*@Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == Image_Capture_Code) {
-            if (resultCode == RESULT_OK) {
-                Bitmap image = (Bitmap) data.getExtras().get("data");
-                //images.add(image);
-                adapter.addImage(image);
 
-            } else if (resultCode == RESULT_CANCELED) {
-                Toast.makeText(getActivity(), "Cancelled", Toast.LENGTH_SHORT).show();
-            }
-        }
-    }*/
 
     private void openCamera() {
         Intent cInt = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -183,6 +186,7 @@ public class ClothFragment extends Fragment {
                         //images.add(image);
                         adapter.addImage(image);
                         adapter.showPopup();
+
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -296,6 +300,73 @@ public class ClothFragment extends Fragment {
 
     }
 
+    private void classifyImage(Bitmap image){
+        int dimension = Math.min(image.getWidth(),image.getHeight());
+        image = ThumbnailUtils.extractThumbnail(image, dimension, dimension);
+        image = Bitmap.createScaledBitmap(image, imageSize, imageSize, false);
+        Log.i("AI","ai part started");
+        try{
+            Model model= Model.newInstance(getActivity().getApplicationContext());
+
+
+
+            //creates inputs for reference
+            TensorBuffer inputFeature0 = TensorBuffer.createFixedSize(new int[]{1,224,224,3}, DataType.FLOAT32);
+
+
+            ByteBuffer byteBuffer = ByteBuffer.allocateDirect(4*imageSize*imageSize*3);
+            byteBuffer.order(ByteOrder.nativeOrder());
+
+            int [] intValues = new int[imageSize*imageSize];
+            image.getPixels(intValues, 0 , image.getWidth(), 0,0,image.getWidth(),image.getHeight());
+            int pixel = 0;
+            for(int i=0;i<imageSize;i++){
+                for(int j=0;j<imageSize;j++){
+                    int val= intValues[pixel++]; //RGB
+                    byteBuffer.putFloat(((val>>16)&0xFF)*(1.f/255.f));
+                    byteBuffer.putFloat(((val>>8)&0xFF)*(1.f/255.f));
+                    byteBuffer.putFloat((val&0xFF)*(1.f/255.f));
+                }
+            }
+            //image.copyPixelsToBuffer(byteBuffer);
+            //byteBuffer.rewind();
+
+
+            inputFeature0.loadBuffer(byteBuffer);
+
+            //runs model inference and gets the result.
+            Model.Outputs outputs = model.process(inputFeature0);
+            TensorBuffer outputFeature0 = outputs.getOutputFeature0AsTensorBuffer();
+
+            float[] confidences = outputFeature0.getFloatArray();
+
+            int maxpos=0;
+            float maxconfidence=0;
+            for(int i=0; i<confidences.length;i++){
+                if(confidences[i]>maxconfidence){
+                    maxconfidence=confidences[i];
+                    maxpos=i;
+                }
+            }
+            String[] classes={"tshirt", "sweater", "jacket", "coat", "jeans", "shorts",
+                    "shoes", "boots", "tanktop", "cap", "gloves", "scarf", "beanie", "skirt"};
+
+            Log.i("AI","the uploaded photo:"+classes[maxpos]);
+
+            TextView textView = (TextView) getView().findViewById(R.id.textView2);
+            //changes the text to the prediction
+            textView.setText("The Last uploaded photo: "+classes[maxpos]);
+
+            //releases model if not used
+
+            model.close();
+
+
+        } catch (IOException e){
+            //handle expection
+        }
+    }
+
     private void aiRecommendation(List<Bitmap> images){
         double temperature = getArguments().getDouble("temperature")-273;
         Log.i("temp", "temperature is: "+temperature);
@@ -305,14 +376,16 @@ public class ClothFragment extends Fragment {
         }else{
             for(int i=0;i<images.size();i++){
                 Bitmap bitmap = images.get(i);
-                ByteBuffer byteBuffer = ByteBuffer.allocate(bitmap.getByteCount());
-                bitmap.copyPixelsToBuffer(byteBuffer);
-                byteBuffer.rewind();
+
+                //ai stuff
+
+                //classifyImage(bitmap);
+
                 if(userIsMan) {
-                    //create man-ai
+
                 }
                 else{
-                    //create woman-ai
+
                 }
             }
         }
