@@ -1,47 +1,30 @@
 package com.example.weather;
 
 import static android.content.Context.LAYOUT_INFLATER_SERVICE;
-import static com.example.weather.MainActivity.REQUEST_LOCATION;
 
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ContentResolver;
 import android.content.ContentValues;
-import android.content.Context;
-import android.content.DialogInterface;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.media.ThumbnailUtils;
 import android.os.Bundle;
 
-import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultCallback;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.ActivityResultRegistry;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 
-import android.os.Environment;
-import android.service.controls.templates.ThumbnailTemplate;
+import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
-import android.os.Bundle;
 import android.provider.MediaStore;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -49,25 +32,16 @@ import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.lifecycle.*;
-import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.graphics.Bitmap;
-import android.provider.MediaStore;
-import android.graphics.Bitmap;
+import java.util.Random;
 
 import com.example.weather.ml.Model;
 
@@ -76,12 +50,15 @@ import org.tensorflow.lite.support.tensorbuffer.TensorBuffer;
 
 
 public class ClothFragment extends Fragment {
+
+
+    //TextView predictionTextView;
     int imageSize = 224;
     private static final int GALLERY_REQUEST_CODE = 5;
     private View popupView;
     private boolean genderNotSelected = true;
-    private List<Bitmap> images;
-    private PhotoAdapter adapter;
+    //private List<Bitmap> images;
+    private PhotoAdapter image_adapter ;
 
     public static final int RESULT_OK = Activity.RESULT_OK;
 
@@ -90,19 +67,29 @@ public class ClothFragment extends Fragment {
     private boolean userIsMan=true;
 
     private static final int Image_Capture_Code = 1;
+    private HashMap<String, ArrayList<Bitmap>> classesMap = new HashMap<>();
+
+
+    private final String[] classNames = {"tshirt", "sweater", "jacket", "coat", "jeans", "shorts",
+            "shoes", "boots", "tanktop", "cap", "gloves", "scarf", "beanie", "skirt"};
+
 
     public class PhotoAdapter extends RecyclerView.Adapter<PhotoAdapter.ViewHolder> {
+
+
+        int prediction_index=0;
+        private List<String> predictions =new ArrayList<>();
+        List<Bitmap> images= new ArrayList<>();
         public class ViewHolder extends RecyclerView.ViewHolder {
             ImageView imageView;
+            TextView predictionTextView;
 
             public ViewHolder(View itemView) {
                 super(itemView);
                 imageView = itemView.findViewById(R.id.image_view);
+                predictionTextView = itemView.findViewById(R.id.prediction_text_view);
+
             }
-        }
-
-        public PhotoAdapter() {
-
         }
 
         @NonNull
@@ -115,6 +102,7 @@ public class ClothFragment extends Fragment {
         @Override
         public void onBindViewHolder(ViewHolder holder, int position) {
             holder.imageView.setImageBitmap(images.get(position));
+            holder.predictionTextView.setText(predictions.get(position));
         }
 
         @Override
@@ -124,74 +112,51 @@ public class ClothFragment extends Fragment {
 
         public void addImage(Bitmap bitmap) {
             images.add(bitmap);
-            classifyImage(bitmap);
-            notifyDataSetChanged();
+            classifyImage(bitmap,this);
+
+            //notifyDataSetChanged();
         }
-        public void showPopup() {
 
-            // inflate the layout of the popup window
-            LayoutInflater inflater = (LayoutInflater) getContext().getSystemService(LAYOUT_INFLATER_SERVICE);
-            popupView = inflater.inflate(R.layout.popup_window, null);
+    }
 
+    public void showPopup(PhotoAdapter adapter) {
 
-            // create the popup window
-            int width = LinearLayout.LayoutParams.MATCH_PARENT;
-            int height = LinearLayout.LayoutParams.MATCH_PARENT;
-            boolean focusable = true; // lets taps outside the popup also dismiss it
-            final PopupWindow popupWindow = new PopupWindow(popupView, width, height, focusable);
-
-            // show the popup window
-            popupWindow.showAtLocation(view, Gravity.CENTER, 0, 0);
+        // inflate the layout of the popup window
+        LayoutInflater inflater = (LayoutInflater) getContext().getSystemService(LAYOUT_INFLATER_SERVICE);
+        popupView = inflater.inflate(R.layout.popup_window, null);
 
 
-            Button closeButton = popupView.findViewById(R.id.close_button);
-            //closeButton.setBackgroundResource(R.drawable.baseline_cancel_24);
-            //closeButton.setBackgroundColor(Color.TRANSPARENT);
-            popupView.setBackgroundColor(Color.argb(150, 0, 0, 0));
-            closeButton.setOnClickListener(view -> {
-                popupWindow.dismiss();
+        // create the popup window
+        int width = LinearLayout.LayoutParams.WRAP_CONTENT;
+        int height = LinearLayout.LayoutParams.WRAP_CONTENT;
+        boolean focusable = true;
+        final PopupWindow popupWindow = new PopupWindow(popupView, width, height, focusable);
+        //popupWindow.setAnimationStyle(android.R.anim.fade_in);
+        // show the popup window
+        popupWindow.showAtLocation(view, Gravity.CENTER, 0, 0);
 
-            }
 
-            );
+        Button closeButton = popupView.findViewById(R.id.close_button);
+        closeButton.setVisibility(View.VISIBLE);
+        //closeButton.setBackgroundResource(R.drawable.baseline_cancel_24);
+        //closeButton.setBackgroundColor(Color.TRANSPARENT);
+        //popupView.setBackgroundColor(Color.argb(150, 0, 0, 0));
+        closeButton.setOnClickListener(view -> {
+                    //popupWindow.setAnimationStyle(android.R.anim.fade_out);
+                    popupWindow.dismiss();
+                    //closeButton.setVisibility(View.GONE);
 
-            RecyclerView recyclerView = popupView.findViewById(R.id.recycler_view);
-            recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-            recyclerView.setAdapter(new PhotoAdapter());
-        }
+                }
+
+        );
+
+        RecyclerView recyclerView = popupView.findViewById(R.id.recycler_view);
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        recyclerView.setAdapter(adapter);
     }
 
 
 
-    private void openCamera() {
-        Intent cInt = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        startActivityForResult(cInt,Image_Capture_Code);
-    }
-
-
-    private ActivityResultLauncher<String> mGetContent;
-
-    @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        ActivityResultRegistry registry = requireActivity().getActivityResultRegistry();
-        mGetContent = registry.register("imageSelection", this, new ActivityResultContracts.GetContent(),
-                uri -> {
-                    // Handle the returned Uri
-                    Log.i("image", "image arrived");
-                    //there will be returned image
-                    try {
-                        Bitmap image = MediaStore.Images.Media.getBitmap(getContext().getContentResolver(), uri);
-                        //images.add(image);
-                        adapter.addImage(image);
-                        adapter.showPopup();
-
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
-    }
 
     View view;
     @Override
@@ -199,10 +164,9 @@ public class ClothFragment extends Fragment {
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         view = inflater.inflate(R.layout.fragment_cloth, container, false);
+        Button imagebutton = view.findViewById(R.id.images_button);
 
-
-        images = new ArrayList<>();
-        adapter = new PhotoAdapter();
+        image_adapter = new PhotoAdapter();
 
 
         Button button = view.findViewById(R.id.upload_image_button);
@@ -218,6 +182,21 @@ public class ClothFragment extends Fragment {
             }
         });
 
+
+        imagebutton.setOnClickListener(view1 -> {
+            if(image_adapter.images.isEmpty())
+                Toast.makeText(getContext(),"Please upload some image first", Toast.LENGTH_SHORT).show();
+            else
+                showPopup(image_adapter);
+        });
+
+        Button recommendation_button=view.findViewById(R.id.recommendation_button);
+        recommendation_button.setOnClickListener(view1 -> {
+            if(image_adapter.images.isEmpty())
+                Toast.makeText(getContext(),"Please upload some image first", Toast.LENGTH_SHORT).show();
+            else
+                aiRecommendation(image_adapter);
+        });
 
         return view;
     }
@@ -242,6 +221,18 @@ public class ClothFragment extends Fragment {
 
 
     }
+
+    private Uri imageUri;
+
+    private void openCamera() {
+        Intent cInt = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        String fileName = "Pic.jpg";
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.TITLE, fileName);
+        imageUri = getActivity().getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+        cInt.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+        startActivityForResult(cInt,Image_Capture_Code);
+    }
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -256,7 +247,7 @@ public class ClothFragment extends Fragment {
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                    adapter.addImage(bitmap);
+                    image_adapter.addImage(bitmap);
                     //process the selected image and add it to the images list
                 }
             } else if(data.getData() != null) {
@@ -267,10 +258,24 @@ public class ClothFragment extends Fragment {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-                adapter.addImage(bitmap);
+                image_adapter.addImage(bitmap);
                 //process the selected image and add it to the images list
             }
-            adapter.showPopup();
+            showPopup(image_adapter);
+        }
+        if (resultCode == RESULT_OK && requestCode == Image_Capture_Code) {
+            Uri selectedImage = imageUri;
+            getActivity().getContentResolver().notifyChange(selectedImage, null);
+            ContentResolver cr = getActivity().getContentResolver();
+            Bitmap bitmap;
+            try {
+                bitmap = android.provider.MediaStore.Images.Media
+                        .getBitmap(cr, selectedImage);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            image_adapter.addImage(bitmap);
+            showPopup(image_adapter);
         }
     }
 
@@ -300,7 +305,8 @@ public class ClothFragment extends Fragment {
 
     }
 
-    private void classifyImage(Bitmap image){
+    private void classifyImage(Bitmap image, PhotoAdapter adapter){
+        Bitmap original_image=image;
         int dimension = Math.min(image.getWidth(),image.getHeight());
         image = ThumbnailUtils.extractThumbnail(image, dimension, dimension);
         image = Bitmap.createScaledBitmap(image, imageSize, imageSize, false);
@@ -348,14 +354,18 @@ public class ClothFragment extends Fragment {
                     maxpos=i;
                 }
             }
-            String[] classes={"tshirt", "sweater", "jacket", "coat", "jeans", "shorts",
-                    "shoes", "boots", "tanktop", "cap", "gloves", "scarf", "beanie", "skirt"};
 
-            Log.i("AI","the uploaded photo:"+classes[maxpos]);
+            Log.i("AI","the uploaded photo:"+classNames[maxpos]);
 
-            TextView textView = (TextView) getView().findViewById(R.id.textView2);
-            //changes the text to the prediction
-            textView.setText("The Last uploaded photo: "+classes[maxpos]);
+            adapter.predictions.add(classNames[maxpos]);
+            adapter.prediction_index++;
+
+            addToList(original_image,classNames[maxpos]);
+
+            //TextView textView = getView().findViewById(R.id.textView2);
+
+
+
 
             //releases model if not used
 
@@ -367,27 +377,76 @@ public class ClothFragment extends Fragment {
         }
     }
 
-    private void aiRecommendation(List<Bitmap> images){
+
+    public void addToList(Bitmap bitmap, String className) {
+        if (!classesMap.containsKey(className)) {
+            classesMap.put(className, new ArrayList<Bitmap>());
+        }
+        classesMap.get(className).add(bitmap);
+    }
+
+    public ArrayList<Bitmap> getArray(String className) {
+        return classesMap.get(className);
+    }
+
+    private void getrandomcloth(String str, PhotoAdapter adapter){
+        List<Bitmap> imagelist = getArray(str);
+        if(imagelist !=null){
+            Random random = new Random();
+            Bitmap image = imagelist.get(random.nextInt(imagelist.size()));
+            adapter.images.add(image);
+            adapter.predictions.add(str);
+            adapter.prediction_index++;
+        }
+    }
+    private void aiRecommendation(PhotoAdapter adapter){
         double temperature = getArguments().getDouble("temperature")-273;
         Log.i("temp", "temperature is: "+temperature);
-        if(images.isEmpty()){
+        if(adapter.images.isEmpty()){
             //handle empty list
             Toast.makeText(getContext(),"Please upload some images first", Toast.LENGTH_SHORT).show();
         }else{
-            for(int i=0;i<images.size();i++){
-                Bitmap bitmap = images.get(i);
+            //ai stuff
 
-                //ai stuff
+            PhotoAdapter recommendedAdapter = new PhotoAdapter();
 
-                //classifyImage(bitmap);
 
-                if(userIsMan) {
+                if(temperature<10){
+                    getrandomcloth("gloves",recommendedAdapter);
+                    getrandomcloth("scarf",recommendedAdapter);
+                    getrandomcloth("boots",recommendedAdapter);
+                    getrandomcloth("coat",recommendedAdapter);
+                    getrandomcloth("beanie",recommendedAdapter);
+                    getrandomcloth("jeans",recommendedAdapter);
+
+                }else if(temperature<20){
+                    getrandomcloth("sweater",recommendedAdapter);
+                    getrandomcloth("beanie",recommendedAdapter);
+                    getrandomcloth("shoes",recommendedAdapter);
+                    getrandomcloth("jacket",recommendedAdapter);
+                    getrandomcloth("jeans",recommendedAdapter);
+
+                } else if(temperature<30){
+                    getrandomcloth("tshirt",recommendedAdapter);
+                    getrandomcloth("shoes",recommendedAdapter);
+                    getrandomcloth("jeans",recommendedAdapter);
+                } else {
+                    if(userIsMan) {
+                        getrandomcloth("tanktop",recommendedAdapter);
+                        getrandomcloth("shoes",recommendedAdapter);
+                        getrandomcloth("shorts",recommendedAdapter);
+                    }
+                     else{
+                        getrandomcloth("tshirt",recommendedAdapter);
+                        getrandomcloth("tanktop",recommendedAdapter);
+                        getrandomcloth("shoes",recommendedAdapter);
+                        getrandomcloth("skirt",recommendedAdapter);
+                    }
 
                 }
-                else{
 
-                }
-            }
+
+            showPopup(recommendedAdapter);
         }
 
     }

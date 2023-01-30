@@ -9,6 +9,8 @@
 
     <!-- TODO: Update blank fragment layout -->
 
+
+
     <Button
         android:id="@+id/upload_image_button"
         android:layout_width="wrap_content"
@@ -25,14 +27,35 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:text="Upload some photo to get started!"
+        android:text=""
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.439" />
+        />
 
+    <Button
+        android:id="@+id/images_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="show images"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/upload_image_button"
+        app:layout_constraintVertical_bias="0.191" />
 
+    <Button
+        android:id="@+id/recommendation_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="combination"
+        app:layout_constraintBottom_toTopOf="@+id/textView2"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.498"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.85" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>
