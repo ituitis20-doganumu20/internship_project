@@ -1,0 +1,1 @@
+you can find the project that I done for my first internship here. I created an android app that shows weather information and you can upload your clothes' images and it will recognize them, then it will recommend a outfit combination based on the weather. You can find the report in pdf file.
